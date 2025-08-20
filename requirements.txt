@@ -1,7 +1,0 @@
-# 无需额外依赖，仅使用Python标准库
-
-nirtorch>=0.1.0
-snnTorch>=0.6.0
-torch>=2.0.0
-nir>=1.0.0
-numpy>=1.21.0

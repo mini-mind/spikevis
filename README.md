@@ -1,94 +1,132 @@
 # NIR模型可视化工具
 
-使用nirtorch解析NIR格式的神经网络模型，并生成Mermaid流程图可视化。
+基于Vue.js和vis.js的NIR模型可视化工具，提供类似ONNX.js的交互式图形界面。
 
-## 功能
+## 功能特性
 
-- 使用nirtorch解析NIR格式模型文件
-- 使用nir库创建示例NIR模型
-- 生成Mermaid流程图
-- 支持命令行使用
+- 🎯 **拖拽上传**: 支持拖拽上传JSON格式的NIR模型文件
+- 📊 **交互式可视化**: 使用vis.js绘制网络图
+- 🎨 **节点分类**: 不同类型节点使用不同颜色标识
+- 📋 **详细信息**: 侧边栏显示模型和节点详细信息
+- 🖼️ **图片导出**: 支持导出网络图为PNG图片
+- 🔍 **节点选择**: 点击节点查看详细信息
+- 🚀 **示例数据**: 内置示例数据，一键加载体验
 
-## 安装依赖
+## 技术栈
+
+- **Vue 3**: 现代响应式框架
+- **Element Plus**: UI组件库
+- **vis.js**: 网络图可视化库
+- **Vite**: 快速构建工具
+
+## 安装和运行
+
+### 1. 安装依赖
 
 ```bash
-# 激活conda环境
-conda activate nir
-
-# 安装依赖
-pip install -r requirements.txt
+npm install
 ```
+
+### 2. 启动开发服务器
+
+```bash
+npm run dev
+```
+
+应用将在 `http://localhost:3000` 启动
 
 ## 使用方法
 
-### 1. 创建示例模型
+1. 打开浏览器访问 `http://localhost:3000`
+2. 点击"加载示例"按钮查看示例网络
+3. 或点击"加载NIR文件"按钮上传JSON格式的模型文件
+4. 在网络图中查看模型结构
+5. 点击节点查看详细信息
+6. 使用"导出图片"功能保存网络图
 
-```bash
-# 使用nir库创建示例NIR模型
-python create_example_models.py
+## 文件格式
+
+支持JSON格式的NIR模型文件，结构如下：
+
+```json
+{
+  "nodes": {
+    "node_id": {
+      "type": "节点类型",
+      "input_type": { "input": [形状] },
+      "output_type": { "output": [形状] },
+      "metadata": { "name": "节点名称" }
+    }
+  },
+  "edges": [
+    ["源节点", "目标节点"]
+  ]
+}
 ```
-
-这将创建一个示例模型：
-- `simple_snn.nir` - 简单的前馈神经网络
-
-### 2. 生成可视化图表
-
-```bash
-# 解析模型并生成图表
-python generate_mermaid.py simple_snn.nir
-
-# 指定输出文件
-python generate_mermaid.py simple_snn.nir -o my_diagram.mmd
-```
-
-### 3. 参数说明
-- `model_path`: NIR模型文件路径
-- `-o, --output`: 输出文件路径（可选，默认为模型名_diagram.mmd）
 
 ## 项目结构
 
 ```
 spikevis/
 ├── src/
-│   ├── nir_parser.py      # NIR解析器（使用nir库）
-│   └── mermaid_generator.py # Mermaid生成器
-├── generate_mermaid.py    # 主脚本
-├── create_example_models.py # 示例模型创建脚本
-├── requirements.txt      # 依赖包
-└── README.md            # 说明文档
+│   ├── App.vue          # 主应用组件
+│   └── main.js          # 应用入口
+├── docs/
+│   └── nir_operators.md # NIR算子文档
+├── package.json         # 依赖配置
+├── vite.config.js       # Vite配置
+├── index.html           # HTML模板
+└── README.md           # 说明文档
 ```
 
-## 技术栈
+## 节点类型颜色说明
 
-- **nir**: NIR格式核心库
-- **nirtorch**: NIR与PyTorch的桥接
-- **snnTorch**: SNN模型创建
-- **PyTorch**: 深度学习框架
-- **Mermaid**: 图表生成
+- 🔵 **蓝色**: 输入/输出节点
+- 🟢 **绿色**: 神经元模型 (LIF, LI, IF等)
+- 🟠 **橙色**: 线性变换层 (Linear, Affine, Conv等)
+- ⚪ **灰色**: 其他类型节点
 
-## 示例
+## 开发说明
+
+### 开发模式
 
 ```bash
-# 1. 创建示例模型
-python create_example_models.py
-
-# 2. 生成可视化图表
-python generate_mermaid.py simple_snn.nir
-
-# 3. 查看生成的.mmd文件
+npm run dev
 ```
 
-生成的`.mmd`文件可以在支持Mermaid的编辑器或在线工具中查看。
+### 构建生产版本
 
-## 当前状态
+```bash
+npm run build
+```
 
-✅ 已完成功能：
-- NIR模型创建（简单前馈网络）
-- NIR模型解析
-- Mermaid图表生成
-- 命令行界面
+### 预览生产版本
 
-🔄 待完善功能：
-- 更复杂的网络结构（卷积、LIF神经元等）
-- 更详细的节点信息显示
-- 更美观的图表样式
+```bash
+npm run preview
+```
+
+## 注意事项
+
+1. 前端需要Node.js 16+
+2. 支持的文件格式: .json
+3. 文件需要包含nodes和edges字段
+4. 节点类型会自动识别并设置相应颜色
+
+## 故障排除
+
+### 常见问题
+
+1. **依赖安装失败**
+   ```bash
+   npm cache clean --force
+   npm install
+   ```
+
+2. **文件上传失败**
+   - 检查文件格式是否为JSON
+   - 确保文件包含nodes和edges字段
+
+3. **网络图不显示**
+   - 检查vis.js是否正确加载
+   - 查看浏览器控制台错误信息

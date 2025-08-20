@@ -1,0 +1,37 @@
+{
+  "nodes": {
+    "input": {
+      "type": "Input",
+      "input_type": { "input": [784] },
+      "output_type": { "output": [784] },
+      "metadata": { "name": "input_layer" }
+    },
+    "hidden": {
+      "type": "LIF",
+      "input_type": { "input": [784] },
+      "output_type": { "output": [100] },
+      "metadata": { "name": "hidden_layer" },
+      "tau": [20.0],
+      "v_threshold": [1.0]
+    },
+    "output": {
+      "type": "Affine",
+      "input_type": { "input": [100] },
+      "output_type": { "output": [10] },
+      "metadata": { "name": "output_layer" },
+      "weight_shape": [10, 100],
+      "bias_shape": [10]
+    },
+    "out": {
+      "type": "Output",
+      "input_type": { "input": [10] },
+      "output_type": { "output": [10] },
+      "metadata": { "name": "output_node" }
+    }
+  },
+  "edges": [
+    ["input", "hidden"],
+    ["hidden", "output"],
+    ["output", "out"]
+  ]
+}
