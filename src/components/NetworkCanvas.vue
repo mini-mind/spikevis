@@ -3,34 +3,34 @@
     <!-- 拖拽提示区域 -->
     <div v-if="!hasModel" class="drop-zone" @drop="handleDrop" @dragover="handleDragOver" @dragleave="handleDragLeave">
       <div class="drop-content">
-        <div class="logo">
-          <span class="logo-text">NIR</span>
-          <div class="logo-icon">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
-              <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
-              <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
-              <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
-              <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
-              <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
-              <line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1"/>
-              <line x1="8" y1="16" x2="16" y2="16" stroke="currentColor" stroke-width="1"/>
-              <line x1="12" y1="6" x2="8" y2="8" stroke="currentColor" stroke-width="1"/>
-              <line x1="12" y1="6" x2="16" y2="8" stroke="currentColor" stroke-width="1"/>
-              <line x1="12" y1="18" x2="8" y2="16" stroke="currentColor" stroke-width="1"/>
-              <line x1="12" y1="18" x2="16" y2="16" stroke="currentColor" stroke-width="1"/>
-            </svg>
-          </div>
-          <span class="logo-text">VISUALIZER</span>
-        </div>
+                 <div class="logo">
+           <span class="logo-text">VIS</span>
+           <div class="logo-icon">
+             <svg viewBox="0 0 24 24" fill="currentColor">
+               <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+               <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+               <circle cx="16" cy="8" r="1.5" fill="currentColor"/>
+               <circle cx="8" cy="16" r="1.5" fill="currentColor"/>
+               <circle cx="16" cy="16" r="1.5" fill="currentColor"/>
+               <circle cx="12" cy="6" r="1.5" fill="currentColor"/>
+               <circle cx="12" cy="18" r="1.5" fill="currentColor"/>
+               <line x1="8" y1="8" x2="16" y2="8" stroke="currentColor" stroke-width="1"/>
+               <line x1="8" y1="16" x2="16" y2="16" stroke="currentColor" stroke-width="1"/>
+               <line x1="12" y1="6" x2="8" y2="8" stroke="currentColor" stroke-width="1"/>
+               <line x1="12" y1="6" x2="16" y2="8" stroke="currentColor" stroke-width="1"/>
+               <line x1="12" y1="18" x2="8" y2="16" stroke="currentColor" stroke-width="1"/>
+               <line x1="12" y1="18" x2="16" y2="16" stroke="currentColor" stroke-width="1"/>
+             </svg>
+           </div>
+           <span class="logo-text">NIR</span>
+         </div>
                  <button class="open-button" @click="openFileBrowser">
            Open Model...
          </button>
          <input 
            ref="fileInput" 
            type="file" 
-           accept=".nir,.h5,.hdf5,.json" 
+           accept=".nir,.json" 
            style="display: none" 
            @change="handleFileSelect"
          />
@@ -229,16 +229,6 @@ export default {
     const handleFileSelect = async (event) => {
       const file = event.target.files[0]
       if (file) {
-        // 检查文件类型
-        const validExtensions = ['.nir', '.h5', '.hdf5', '.json']
-        const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-        
-        if (!validExtensions.includes(fileExtension)) {
-          ElMessage.error('不支持的文件格式，请选择.nir、.h5、.hdf5或.json文件')
-          event.target.value = ''
-          return
-        }
-        
         try {
           ElMessage.success('正在解析文件...')
           const nirData = await readNIRFile(file)
@@ -282,21 +272,6 @@ export default {
       
       if (files.length > 0) {
         const file = files[0]
-        console.log('文件信息:', {
-          name: file.name,
-          type: file.type,
-          size: file.size
-        })
-        
-        // 检查文件类型
-        const validExtensions = ['.nir', '.h5', '.hdf5', '.json']
-        const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'))
-        
-        if (!validExtensions.includes(fileExtension)) {
-          ElMessage.error('不支持的文件格式，请选择.nir、.h5、.hdf5或.json文件')
-          return
-        }
-        
         try {
           ElMessage.success('正在解析文件...')
           const nirData = await readNIRFile(file)
@@ -408,15 +383,15 @@ export default {
 }
 
 .logo-text {
-  font-size: 14px;
+  font-size: 60px;
   font-weight: 400;
   color: #6c757d;
   letter-spacing: 0.5px;
 }
 
 .logo-icon {
-  width: 24px;
-  height: 24px;
+  width: 60px;
+  height: 60px;
   color: #495057;
   display: flex;
   align-items: center;
@@ -432,8 +407,8 @@ export default {
   background: white;
   border: 1px solid #dee2e6;
   border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 12px 24px;
+  font-size: 16px;
   color: #495057;
   cursor: pointer;
   transition: all 0.2s ease;

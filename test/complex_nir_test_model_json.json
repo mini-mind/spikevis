@@ -1,0 +1,100 @@
+{
+  "nodes": {
+    "input": {
+      "type": "Input",
+      "input_type": {"input": [784]},
+      "metadata": {"name": "input_layer", "description": "输入层"}
+    },
+    "linear1": {
+      "type": "Linear",
+      "weight": [[0.1, 0.2, 0.3] * 261 + [0.1, 0.2]][:784],
+      "metadata": {"name": "linear1", "description": "线性层"}
+    },
+    "scale1": {
+      "type": "Scale",
+      "scale": [1.0],
+      "metadata": {"name": "scale1", "description": "缩放层"}
+    },
+    "affine1": {
+      "type": "Affine",
+      "weight": [[0.1] * 256],
+      "bias": [0.0] * 256,
+      "metadata": {"name": "affine1", "description": "仿射层"}
+    },
+    "threshold1": {
+      "type": "Threshold",
+      "threshold": [0.5] * 256,
+      "metadata": {"name": "threshold1", "description": "阈值层"}
+    },
+    "delay1": {
+      "type": "Delay",
+      "delay": [1] * 256,
+      "metadata": {"name": "delay1", "description": "延迟层"}
+    },
+    "lif1": {
+      "type": "LIF",
+      "tau": [20.0] * 256,
+      "r": [1.0] * 256,
+      "v_leak": [0.0] * 256,
+      "v_threshold": [1.0] * 256,
+      "v_reset": [0.0] * 256,
+      "metadata": {"name": "lif1", "description": "LIF神经元层"}
+    },
+    "li1": {
+      "type": "LI",
+      "tau": [20.0] * 256,
+      "r": [1.0] * 256,
+      "v_leak": [0.0] * 256,
+      "metadata": {"name": "li1", "description": "LI神经元层"}
+    },
+    "if1": {
+      "type": "IF",
+      "r": [1.0] * 256,
+      "v_threshold": [1.0] * 256,
+      "v_reset": [0.0] * 256,
+      "metadata": {"name": "if1", "description": "IF神经元层"}
+    },
+    "integrator1": {
+      "type": "I",
+      "r": [1.0] * 256,
+      "metadata": {"name": "integrator1", "description": "积分器层"}
+    },
+    "output_layer": {
+      "type": "Affine",
+      "weight": [[0.1] * 10],
+      "bias": [0.0] * 10,
+      "metadata": {"name": "output_layer", "description": "最终输出层"}
+    },
+    "output": {
+      "type": "Output",
+      "output_type": {"output": [10]},
+      "metadata": {"name": "output_node", "description": "模型输出"}
+    }
+  },
+  "edges": [
+    ["input", "linear1"],
+    ["linear1", "scale1"],
+    ["scale1", "affine1"],
+    ["affine1", "threshold1"],
+    ["threshold1", "delay1"],
+    ["delay1", "lif1"],
+    ["lif1", "li1"],
+    ["li1", "if1"],
+    ["if1", "integrator1"],
+    ["integrator1", "output_layer"],
+    ["output_layer", "output"]
+  ],
+  "input_type": {"input": [784]},
+  "output_type": {"output": [10]},
+  "metadata": {
+    "name": "complex_nir_test_model",
+    "description": "包含多种NIR算子的复杂测试模型",
+    "author": "NIR Test Suite",
+    "version": "1.0.0",
+    "created_date": "2024-01-01",
+    "operators": [
+      "Input", "Linear", "Scale", "Affine", "Threshold", "Delay", 
+      "LIF", "LI", "IF", "I", "Output"
+    ]
+  }
+}

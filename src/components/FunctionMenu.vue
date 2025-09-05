@@ -23,10 +23,22 @@
         <span>关于</span>
       </div>
     </div>
+    
+    <!-- 隐藏的文件输入 -->
+    <input 
+      ref="fileInput" 
+      type="file" 
+      accept=".nir,.json" 
+      style="display: none" 
+      @change="handleFileSelect"
+    />
   </div>
 </template>
 
 <script>
+import { ElMessage } from 'element-plus'
+import { readNIRFile } from '../utils/nirParser'
+
 export default {
   name: 'FunctionMenu',
   data() {
@@ -40,8 +52,25 @@ export default {
     },
     
     loadNewFile() {
-      this.$emit('load-file')
+      // 直接打开文件浏览器
+      this.$refs.fileInput.click()
       this.isOpen = false
+    },
+    
+    async handleFileSelect(event) {
+      const file = event.target.files[0]
+      if (file) {
+        try {
+          ElMessage.success('正在解析文件...')
+          const nirData = await readNIRFile(file)
+          this.$emit('fileDrop', { file, data: nirData })
+        } catch (error) {
+          console.error('文件解析失败:', error)
+          ElMessage.error(error.message || '文件解析失败')
+        }
+      }
+      // 清空input值，允许重复选择同一文件
+      event.target.value = ''
     },
     
     showAbout() {

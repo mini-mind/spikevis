@@ -2,7 +2,7 @@
   <div id="app">
     <!-- 功能菜单 -->
     <FunctionMenu
-      @load-file="loadFile"
+      @file-drop="handleFileDrop"
       @show-about="showAbout"
     />
 
@@ -25,12 +25,7 @@
       :selected-node="selectedNode"
     />
 
-    <!-- 文件上传对话框 -->
-    <FileUploadDialog
-      :visible="fileDialogVisible"
-      @confirm="confirmLoadFile"
-      @close="fileDialogVisible = false"
-    />
+
 
     <!-- 关于对话框 -->
     <AboutDialog
@@ -45,7 +40,7 @@ import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import NetworkCanvas from './components/NetworkCanvas.vue'
 import ModelSidebar from './components/ModelSidebar.vue'
-import FileUploadDialog from './components/FileUploadDialog.vue'
+
 import FunctionMenu from './components/FunctionMenu.vue'
 import AboutDialog from './components/AboutDialog.vue'
 
@@ -54,13 +49,13 @@ export default {
   components: {
     NetworkCanvas,
     ModelSidebar,
-    FileUploadDialog,
+
     FunctionMenu,
     AboutDialog
   },
   setup() {
     const networkCanvasRef = ref(null)
-    const fileDialogVisible = ref(false)
+
     const aboutDialogVisible = ref(false)
     const modelData = ref(null)
     const modelInfo = ref(null)
@@ -132,9 +127,11 @@ export default {
       }
     }
 
-    // 加载文件对话框
+    // 触发文件加载
     const loadFile = () => {
-      fileDialogVisible.value = true
+        if (networkCanvasRef.value) {
+            networkCanvasRef.value.openFileBrowser()
+        }
     }
 
     // 加载示例数据
@@ -194,19 +191,7 @@ export default {
       }
     }
 
-    // 确认加载文件
-    const confirmLoadFile = async (file) => {
-      try {
-        const { readNIRFile } = await import('./utils/nirParser')
-        const nirData = await readNIRFile(file)
-        loadNIRData(nirData)
-        fileDialogVisible.value = false
-      } catch (error) {
-        // 如果NIR解析失败，尝试JSON解析
-        loadFileFromFile(file)
-        fileDialogVisible.value = false
-      }
-    }
+
 
     // 导出图片
     const exportImage = () => {
@@ -222,7 +207,6 @@ export default {
 
     return {
       networkCanvasRef,
-      fileDialogVisible,
       aboutDialogVisible,
       modelData,
       modelInfo,
@@ -234,7 +218,6 @@ export default {
       handleFileDrop,
       loadFile,
       loadDemo,
-      confirmLoadFile,
       exportImage,
       showAbout
     }
