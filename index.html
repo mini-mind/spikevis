@@ -11,12 +11,15 @@
         padding: 0;
         box-sizing: border-box;
       }
-      
+
       html, body {
         height: 100%;
         overflow: hidden;
+        /* 深色默认：载入即深底，避免主题 CSS 生效前的白闪（与 theme.css 的 --sv-bg-base 一致） */
+        background-color: #171718;
+        color: #d9d9d9;
       }
-      
+
       #app {
         height: 100vh;
         width: 100vw;

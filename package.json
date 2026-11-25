@@ -2,16 +2,23 @@
   "name": "nir-visualizer",
   "version": "1.0.0",
   "description": "NIR模型可视化工具",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test && .venv-nir/bin/python tools/run_e2e_check.py && .venv-nir/bin/python tools/run_cross_checks.py && .venv-nir/bin/python tools/run_prune_group_checks.py",
+    "test:node": "node --test",
+    "test:edit": "node --test test/e2e_edit.test.mjs && .venv-nir/bin/python tools/run_e2e_check.py",
+    "test:cross": ".venv-nir/bin/python tools/run_cross_checks.py",
+    "test:prune-group": "node --test test/prune.test.mjs test/grouping.test.mjs test/prune_group_e2e.test.mjs && .venv-nir/bin/python tools/run_prune_group_checks.py",
+    "gen:fixtures": ".venv-nir/bin/python tools/gen_all_types_nir.py && .venv-nir/bin/python tools/gen_shape_expectations.py"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.1.0",
     "canvas": "^3.2.0",
     "element-plus": "^2.3.8",
-    "h5wasm": "^0.8.3",
+    "h5wasm": "^0.10.3",
     "vis-data": "^7.1.4",
     "vis-network": "^9.1.6",
     "vue": "^3.3.4"
@@ -21,5 +28,6 @@
     "@vitejs/plugin-vue": "^4.2.3",
     "sass": "^1.90.0",
     "vite": "^4.4.5"
-  }
+  },
+  "type": "module"
 }

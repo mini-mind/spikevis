@@ -24,5 +24,14 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Python venv for nir cross-checks
+.venv-nir/
+
+# Test outputs (roundtrip files, negative-control mutants)
+test/output/
+
+# 私有笔记：竞品档案、商业化思路，不入库
+/private/
+
 # Public directory (if not intended for version control)
 # /public/

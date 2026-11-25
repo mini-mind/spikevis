@@ -1,0 +1,404 @@
+/*
+ * spikevis 全局主题（深色为默认）。
+ * 配色与质感借鉴 ComfyUI 当前版本新前端的设计系统（packages/design-system/src/css/style.css）：
+ * 深灰阶 charcoal / smoke、强调色 azure、语义色 jade / gold / coral 只取色值，
+ * 所有 CSS 由本仓库自行编写。
+ * vis-network 的取色通过脚本读这里的变量（NetworkCanvas.vue 里的 cssVar），
+ * 颜色只在这一处定义，不在脚本里再写一份。
+ */
+
+:root {
+  /* ===== 底色（charcoal 阶，取自 ComfyUI 调色板）===== */
+  /* 画布底（ComfyUI --bg-color） */
+  --sv-bg-canvas: #202020;
+  /* 应用主背景（charcoal-800，ComfyUI --base-background） */
+  --sv-bg-base: #171718;
+  /* 面板底：侧栏、状态条、菜单（charcoal-700） */
+  --sv-bg-panel: #202121;
+  /* 节点卡片表面（charcoal-600，ComfyUI --node-component-surface） */
+  --sv-bg-node: #262729;
+  /* 节点悬停（charcoal-400） */
+  --sv-bg-node-hover: #313235;
+  /* 节点选中背景（charcoal-500） */
+  --sv-bg-node-selected: #2d2e32;
+  /* 校验错误节点背景：暗红底、红边框 */
+  --sv-bg-node-issue: #3b2225;
+  /* 输入框底（ComfyUI --comfy-input-bg #222 的等价物） */
+  --sv-bg-input: #232427;
+  /* 弹层底：下拉、消息、对话框（charcoal-600，ComfyUI --modal-panel-background） */
+  --sv-bg-overlay: #262729;
+
+  /* ===== 文本 ===== */
+  --sv-text-primary: #ffffff;
+  /* 正文：比 ComfyUI 的 slate-100 略亮一档，保证中文正文对比度 >= 4.5:1 */
+  --sv-text-regular: #d9d9d9; /* smoke-400 */
+  /* 次文本（slate-100，ComfyUI --text-secondary） */
+  --sv-text-secondary: #9c9eab;
+  /* 弱化文本（smoke-800） */
+  --sv-text-muted: #8a8a8a;
+
+  /* ===== 边框（charcoal 阶，ComfyUI --border-default / --border-subtle）===== */
+  --sv-border-strong: #494a50; /* charcoal-200 */
+  --sv-border: #3c3d42;        /* charcoal-300 */
+  --sv-border-weak: #313235;   /* charcoal-400 */
+  /* 节点卡边框（ComfyUI 深色 --node-component-border = ash-800） */
+  --sv-node-border: #444444;
+  --sv-node-border-hover: #bbbbbb;      /* ash-300 */
+  --sv-node-border-selected: #ffffff;   /* ComfyUI --node-stroke-selected 深色下为白 */
+  --sv-node-border-changed: #fdab34;    /* gold-500：已修改标记 */
+  --sv-node-border-issue: #f75951;      /* coral-500：校验错误标记 */
+
+  /* ===== 强调与语义 ===== */
+  --sv-primary: #0b8ce9;       /* azure-600，ComfyUI 深色 --primary-background */
+  --sv-primary-hover: #31b9f4; /* azure-400 */
+  --sv-success: #00cd72;       /* jade-600 */
+  --sv-success-bright: #47e469; /* jade-400，深底文字用 */
+  --sv-warning: #fd9903;       /* gold-600 */
+  --sv-warning-bright: #fcbf64; /* gold-400，深底文字用 */
+  --sv-danger: #f75951;        /* coral-500，深底文字/标记 */
+  --sv-danger-strong: #b33a3a; /* coral-700，按钮底 */
+
+  /* ===== 连线（ComfyUI 旧渲染 LINK_COLOR 换成中性灰，选中/悬停走强调色）===== */
+  --sv-edge: #828282; /* ash-500 */
+  --sv-edge-issue: #f75951;
+
+  /* ===== 节点类别标题色（画布节点首行类型名 + 侧栏/对话框的类别点缀）===== */
+  --sv-cat-io: #31b9f4;      /* azure-400：输入输出 */
+  --sv-cat-neuron: #47e469;  /* jade-400：神经元 */
+  --sv-cat-synapse: #fcbf64; /* gold-400：突触/权重 */
+  --sv-cat-shape: #ceaac9;   /* magenta-300：池化/形状变换 */
+  --sv-cat-graph: #bd85f5;   /* 子图（ComfyUI 用 purple 系标子图/promoted，这里再提亮到深底对比 >= 4.5:1） */
+  --sv-cat-other: #9c9eab;   /* slate-100：未知类型 */
+
+  /* ===== 圆角（ComfyUI：按钮 8px、模态 10px、小元素 4px）===== */
+  --sv-radius-sm: 4px;
+  --sv-radius: 8px;
+  --sv-radius-lg: 10px;
+  --sv-radius-node: 6px; /* vis-network 节点卡 borderRadius */
+
+  /* ===== 阴影与遮罩（ComfyUI：面板 1px 1px 8px 0 rgb(0 0 0 / 0.4)，遮罩 rgb(0 0 0 / 0.5)）===== */
+  --sv-shadow-panel: 1px 1px 8px 0 rgba(0, 0, 0, 0.4);
+  --sv-shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --sv-shadow-node: 3px 3px 8px rgba(0, 0, 0, 0.4);
+  --sv-mask: rgba(0, 0, 0, 0.5);
+
+  /* ===== 画布细网格 ===== */
+  --sv-grid-line: rgba(255, 255, 255, 0.04);
+  --sv-grid-size: 24px;
+
+  /* ===== 字体（ComfyUI 正文与节点都用 Inter；中文回退系统字体）===== */
+  --sv-font: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', Arial, sans-serif;
+  --sv-font-mono: ui-monospace, 'SFMono-Regular', Consolas, 'Courier New', monospace;
+  --sv-font-size: 14px; /* 中文界面下限 */
+
+  /* ===== 画布节点卡片尺寸与字号（vis-network 逻辑像素）===== */
+  --sv-node-min-width: 180px;
+  --sv-node-min-height: 88px;
+  --sv-node-font-title: 16px; /* 首行类型名(粗体) */
+  --sv-node-font-name: 15px;  /* 次行节点名 */
+  --sv-node-font-meta: 13px;  /* 末行形状/子图小字 */
+}
+
+/* ============================================================
+ * Element Plus 对齐：覆盖它的 CSS 变量，不重编主题。
+ * light-x 变体按 Element 深色主题的惯例向黑色混合（plain 按钮底、悬停底），
+ * dark-2 用亮色做悬停文字。
+ * ============================================================ */
+:root {
+  /* 主色 */
+  --el-color-primary: var(--sv-primary);
+  --el-color-primary-dark-2: var(--sv-primary-hover);
+  --el-color-primary-light-3: #0861a3;
+  --el-color-primary-light-5: #064675;
+  --el-color-primary-light-7: #032a46;
+  --el-color-primary-light-8: #021f33;
+  --el-color-primary-light-9: #011522;
+
+  /* 成功 */
+  --el-color-success: var(--sv-success);
+  --el-color-success-dark-2: var(--sv-success-bright);
+  --el-color-success-light-3: #008f50;
+  --el-color-success-light-5: #006639;
+  --el-color-success-light-7: #003d22;
+  --el-color-success-light-8: #002917;
+  --el-color-success-light-9: #00140b;
+
+  /* 警告 */
+  --el-color-warning: var(--sv-warning);
+  --el-color-warning-dark-2: var(--sv-warning-bright);
+  --el-color-warning-light-3: #b06b02;
+  --el-color-warning-light-5: #7e4c02;
+  --el-color-warning-light-7: #4c2e01;
+  --el-color-warning-light-8: #321e01;
+  --el-color-warning-light-9: #190f00;
+
+  /* 危险（danger 与 error 同源，对齐 ComfyUI coral）*/
+  --el-color-danger: var(--sv-danger);
+  --el-color-danger-dark-2: var(--sv-danger-strong);
+  --el-color-danger-light-3: #ad3e38;
+  --el-color-danger-light-5: #7b2c28;
+  --el-color-danger-light-7: #4a1a18;
+  --el-color-danger-light-8: #311110;
+  --el-color-danger-light-9: #180908;
+  --el-color-error: var(--sv-danger);
+  --el-color-error-dark-2: var(--sv-danger-strong);
+  --el-color-error-light-3: #ad3e38;
+  --el-color-error-light-5: #7b2c28;
+  --el-color-error-light-7: #4a1a18;
+  --el-color-error-light-8: #311110;
+  --el-color-error-light-9: #180908;
+
+  /* 信息 */
+  --el-color-info: var(--sv-text-secondary);
+  --el-color-info-dark-2: #bbbbbb;
+  --el-color-info-light-3: #6d6e77;
+  --el-color-info-light-5: #4e4f54;
+  --el-color-info-light-7: #2f2f32;
+  --el-color-info-light-8: #202022;
+  --el-color-info-light-9: #101011;
+
+  /* 底色 */
+  --el-bg-color: var(--sv-bg-panel);
+  --el-bg-color-page: var(--sv-bg-base);
+  --el-bg-color-overlay: var(--sv-bg-overlay);
+
+  /* 文本 */
+  --el-text-color-primary: var(--sv-text-primary);
+  --el-text-color-regular: var(--sv-text-regular);
+  --el-text-color-secondary: var(--sv-text-secondary);
+  --el-text-color-placeholder: #6b6d76;
+  --el-text-color-disabled: #5c5e66;
+
+  /* 边框 */
+  --el-border-color: var(--sv-border);
+  --el-border-color-light: var(--sv-border-weak);
+  --el-border-color-lighter: #2d2e32;
+  --el-border-color-extra-light: #262729;
+  --el-border-color-dark: var(--sv-border-strong);
+  --el-border-color-darker: #55565e;
+
+  /* 填充（悬停、禁用、标签底）*/
+  --el-fill-color: var(--sv-bg-node-hover);
+  --el-fill-color-light: var(--sv-bg-node);
+  --el-fill-color-lighter: #232427;
+  --el-fill-color-extra-light: #1e1f21;
+  --el-fill-color-dark: var(--sv-border);
+  --el-fill-color-darker: var(--sv-border-strong);
+  /* 关键：深色下输入框/按钮默认底色，Element 默认是白色 */
+  --el-fill-color-blank: var(--sv-bg-input);
+
+  /* 遮罩与阴影 */
+  --el-mask-color: var(--sv-mask);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+  --el-box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --el-box-shadow-light: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --el-box-shadow-lighter: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --el-box-shadow-dark: var(--sv-shadow-panel);
+
+  /* 圆角 */
+  --el-border-radius-base: var(--sv-radius);
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 999px;
+
+  /* 字号：中文界面一律不低于 14px（Element 的 small/extra-small 默认 12px）*/
+  --el-font-family: var(--sv-font);
+  --el-font-size-base: 14px;
+  --el-font-size-small: 14px;
+  --el-font-size-extra-small: 14px;
+
+  /* 禁用态 */
+  --el-disabled-bg-color: #1e1f21;
+  --el-disabled-border-color: var(--sv-border-weak);
+  --el-disabled-text-color: #5c5e66;
+}
+
+/* ===== Element Plus 组件的少量补充覆盖（变量够不着的部位）===== */
+
+/* 描述列表 bordered 模式的标签底色 */
+.el-descriptions__body {
+  background-color: transparent;
+}
+.el-descriptions .el-descriptions__cell {
+  border-color: var(--sv-border);
+}
+.el-descriptions .el-descriptions__label.is-bordered-label {
+  background-color: #1e1f21;
+  color: var(--sv-text-secondary);
+  /* 定列宽,防止"节点类型"这类标签折行(descriptions 表格列宽由首行单元格决定) */
+  width: 88px;
+}
+
+/* 对话框圆角与阴影柔和 */
+.el-dialog {
+  --el-dialog-border-radius: var(--sv-radius-lg);
+  background-color: var(--sv-bg-panel);
+  box-shadow: var(--sv-shadow-pop);
+}
+.el-dialog__title {
+  color: var(--sv-text-primary);
+  font-weight: 600;
+}
+
+/* 消息提示为深色浮层 */
+.el-message {
+  background-color: var(--sv-bg-overlay);
+  border-color: var(--sv-border-strong);
+}
+.el-message--success .el-message__content {
+  color: var(--sv-success-bright);
+}
+.el-message--warning .el-message__content {
+  color: var(--sv-warning-bright);
+}
+.el-message--error .el-message__content {
+  color: var(--sv-danger);
+}
+.el-message--info .el-message__content {
+  color: var(--sv-text-regular);
+}
+.el-message .el-message__content {
+  color: var(--sv-text-regular);
+}
+
+/* 弹出层（下拉、选择器浮层）底色 */
+.el-popper.is-light,
+.el-popper.is-dark {
+  background: var(--sv-bg-overlay);
+  border: 1px solid var(--sv-border-strong);
+  color: var(--sv-text-regular);
+}
+.el-popper.is-light .el-popper__arrow::before {
+  background: var(--sv-bg-overlay);
+  border: 1px solid var(--sv-border-strong);
+}
+.el-select-dropdown__item.is-hovering {
+  background-color: var(--sv-bg-node-hover);
+}
+.el-select-dropdown__item.is-selected {
+  color: var(--sv-primary-hover);
+}
+
+/* small 尺寸组件的中文文字不低于 14px（高度保持 Element 默认，只提字号）*/
+.el-button--small {
+  font-size: 14px;
+}
+
+/* 主按钮：底色保持强调蓝（对深底约 4.3:1，作大色块可辨），文字改深藏青
+   （#0a1e30 对 #0b8ce9 约 4.8:1），整链可达标；plain/text/link 按钮不受影响 */
+.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-text-color: #0a1e30;
+  --el-button-hover-text-color: #0a1e30;
+  --el-button-active-text-color: #0a1e30;
+  --el-button-hover-bg-color: #31b9f4;
+  --el-button-hover-border-color: #31b9f4;
+  --el-button-active-bg-color: #0861a3;
+  --el-button-active-border-color: #0861a3;
+}
+
+/* 输入框内文字与占位符 */
+.el-input__inner {
+  color: var(--sv-text-primary);
+}
+.el-input__inner::placeholder,
+.el-textarea__inner::placeholder {
+  color: #6b6d76;
+}
+.el-input__wrapper {
+  background-color: var(--sv-bg-input);
+  box-shadow: 0 0 0 1px var(--sv-border) inset;
+}
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--sv-border-strong) inset;
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--sv-primary) inset;
+}
+.el-input-number__decrease,
+.el-input-number__increase {
+  background: var(--sv-bg-node);
+  color: var(--sv-text-secondary);
+  border-color: var(--sv-border-weak);
+}
+
+/* 单选组的文字 */
+.el-radio__label {
+  color: var(--sv-text-regular);
+}
+.el-radio__input.is-checked + .el-radio__label {
+  color: var(--sv-primary-hover);
+}
+
+/* 空状态描述 */
+.el-empty__description p {
+  color: var(--sv-text-secondary);
+}
+
+/* 表单标签 */
+.el-form-item__label {
+  color: var(--sv-text-secondary);
+}
+
+/* 警告条（剪枝对话框 info alert）*/
+.el-alert--info {
+  background-color: var(--sv-bg-node);
+  border: 1px solid var(--sv-border);
+}
+.el-alert--info .el-alert__title {
+  color: var(--sv-text-regular);
+}
+
+/* 确认弹窗（ElMessageBox）底色 */
+.el-message-box {
+  background-color: var(--sv-bg-panel);
+  border: 1px solid var(--sv-border-strong);
+}
+.el-message-box__title {
+  color: var(--sv-text-primary);
+}
+.el-message-box__content {
+  color: var(--sv-text-regular);
+}
+
+/* vis-network 悬停提示(全局 div,组件带内联样式,需 !important 盖住) */
+div.vis-tooltip {
+  background: var(--sv-bg-overlay) !important;
+  color: var(--sv-text-regular) !important;
+  border: 1px solid var(--sv-border-strong) !important;
+  border-radius: 6px !important;
+  font-family: var(--sv-font) !important;
+  font-size: 14px !important;
+  box-shadow: var(--sv-shadow-pop) !important;
+  padding: 6px 10px !important;
+}
+
+/* ===== 全局基础 ===== */
+html,
+body {
+  background-color: var(--sv-bg-base);
+  color: var(--sv-text-regular);
+  font-family: var(--sv-font);
+  font-size: var(--sv-font-size);
+}
+
+/* 细滚动条（对齐 ComfyUI 的 scrollbar-custom 风格）*/
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sv-border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--sv-border-strong);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--sv-border);
+  background-clip: padding-box;
+}

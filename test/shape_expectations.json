@@ -1,0 +1,441 @@
+{
+ "graphs": [
+  {
+   "name": "conv_pool_flatten",
+   "nodes": {
+    "image": {
+     "type": "Input",
+     "input": [
+      1,
+      8,
+      8
+     ],
+     "output": [
+      1,
+      8,
+      8
+     ]
+    },
+    "conv": {
+     "type": "Conv2d",
+     "input": [
+      1,
+      8,
+      8
+     ],
+     "output": [
+      2,
+      6,
+      6
+     ],
+     "input_shape": [
+      8,
+      8
+     ]
+    },
+    "avg": {
+     "type": "AvgPool2d",
+     "input": [
+      2,
+      6,
+      6
+     ],
+     "output": [
+      2,
+      3,
+      3
+     ]
+    },
+    "sum": {
+     "type": "SumPool2d",
+     "input": [
+      2,
+      3,
+      3
+     ],
+     "output": [
+      2,
+      1,
+      1
+     ]
+    },
+    "flat": {
+     "type": "Flatten",
+     "input": [
+      2,
+      1,
+      1
+     ],
+     "output": [
+      2
+     ],
+     "input_type": [
+      2,
+      1,
+      1
+     ]
+    },
+    "neuron": {
+     "type": "LIF",
+     "input": [
+      2
+     ],
+     "output": [
+      2
+     ]
+    },
+    "out": {
+     "type": "Output",
+     "input": [
+      2
+     ],
+     "output": [
+      2
+     ]
+    }
+   },
+   "edges": [
+    [
+     "image",
+     "conv"
+    ],
+    [
+     "conv",
+     "avg"
+    ],
+    [
+     "avg",
+     "sum"
+    ],
+    [
+     "sum",
+     "flat"
+    ],
+    [
+     "flat",
+     "neuron"
+    ],
+    [
+     "neuron",
+     "out"
+    ]
+   ]
+  },
+  {
+   "name": "conv1d_chain",
+   "nodes": {
+    "sig": {
+     "type": "Input",
+     "input": [
+      3,
+      10
+     ],
+     "output": [
+      3,
+      10
+     ]
+    },
+    "conv": {
+     "type": "Conv1d",
+     "input": [
+      3,
+      10
+     ],
+     "output": [
+      4,
+      8
+     ],
+     "input_shape": [
+      10
+     ]
+    },
+    "flat": {
+     "type": "Flatten",
+     "input": [
+      4,
+      8
+     ],
+     "output": [
+      32
+     ],
+     "input_type": [
+      4,
+      8
+     ]
+    },
+    "lin": {
+     "type": "Linear",
+     "input": [
+      32
+     ],
+     "output": [
+      8
+     ]
+    },
+    "aff": {
+     "type": "Affine",
+     "input": [
+      8
+     ],
+     "output": [
+      4
+     ]
+    },
+    "out": {
+     "type": "Output",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    }
+   },
+   "edges": [
+    [
+     "sig",
+     "conv"
+    ],
+    [
+     "conv",
+     "flat"
+    ],
+    [
+     "flat",
+     "lin"
+    ],
+    [
+     "lin",
+     "aff"
+    ],
+    [
+     "aff",
+     "out"
+    ]
+   ]
+  },
+  {
+   "name": "nested_subgraph",
+   "nodes": {
+    "inp": {
+     "type": "Input",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "block": {
+     "type": "NIRGraph",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "out": {
+     "type": "Output",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    }
+   },
+   "edges": [
+    [
+     "inp",
+     "block"
+    ],
+    [
+     "block",
+     "out"
+    ]
+   ]
+  },
+  {
+   "name": "auto_io",
+   "nodes": {
+    "a": {
+     "type": "LIF",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "b": {
+     "type": "LI",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "input_a": {
+     "type": "Input",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "output_b": {
+     "type": "Output",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    }
+   },
+   "edges": [
+    [
+     "a",
+     "b"
+    ],
+    [
+     "input_a",
+     "a"
+    ],
+    [
+     "b",
+     "output_b"
+    ]
+   ]
+  },
+  {
+   "name": "two_branches",
+   "nodes": {
+    "in1": {
+     "type": "Input",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "in2": {
+     "type": "Input",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "lif1": {
+     "type": "LIF",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "li1": {
+     "type": "LI",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    },
+    "out": {
+     "type": "Output",
+     "input": [
+      4
+     ],
+     "output": [
+      4
+     ]
+    }
+   },
+   "edges": [
+    [
+     "in1",
+     "lif1"
+    ],
+    [
+     "in2",
+     "li1"
+    ],
+    [
+     "lif1",
+     "out"
+    ],
+    [
+     "li1",
+     "out"
+    ]
+   ]
+  },
+  {
+   "name": "conv_same_padding",
+   "nodes": {
+    "img": {
+     "type": "Input",
+     "input": [
+      2,
+      8,
+      8
+     ],
+     "output": [
+      2,
+      8,
+      8
+     ]
+    },
+    "conv": {
+     "type": "Conv2d",
+     "input": [
+      2,
+      8,
+      8
+     ],
+     "output": [
+      4,
+      8,
+      8
+     ],
+     "input_shape": [
+      8,
+      8
+     ]
+    },
+    "out": {
+     "type": "Output",
+     "input": [
+      4,
+      8,
+      8
+     ],
+     "output": [
+      4,
+      8,
+      8
+     ]
+    }
+   },
+   "edges": [
+    [
+     "img",
+     "conv"
+    ],
+    [
+     "conv",
+     "out"
+    ]
+   ]
+  }
+ ]
+}
