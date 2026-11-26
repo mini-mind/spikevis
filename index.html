@@ -11,19 +11,22 @@
         padding: 0;
         box-sizing: border-box;
       }
-      
+
       html, body {
         height: 100%;
         overflow: hidden;
+        /* 深色默认：载入即深底，避免主题 CSS 生效前的白闪（与 theme.css 的 --sv-bg-base 一致） */
+        background-color: #171718;
+        color: #d9d9d9;
       }
-      
+
       #app {
         height: 100vh;
         width: 100vw;
       }
     </style>
-    <script type="module" crossorigin src="/spikevis/assets/index-9e525bc7.js"></script>
-    <link rel="stylesheet" href="/spikevis/assets/index-5283011b.css">
+    <script type="module" crossorigin src="/spikevis/assets/index-df0d884f.js"></script>
+    <link rel="stylesheet" href="/spikevis/assets/index-0eb0b40f.css">
   </head>
   <body>
     <div id="app"></div>
