@@ -7,11 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test && .venv-nir/bin/python tools/run_e2e_check.py && .venv-nir/bin/python tools/run_cross_checks.py && .venv-nir/bin/python tools/run_prune_group_checks.py",
+    "test": "node --test && .venv-nir/bin/python tools/run_e2e_check.py && .venv-nir/bin/python tools/run_cross_checks.py && .venv-nir/bin/python tools/run_prune_group_checks.py && .venv-nir/bin/python tools/run_subgraph_checks.py",
     "test:node": "node --test",
     "test:edit": "node --test test/e2e_edit.test.mjs && .venv-nir/bin/python tools/run_e2e_check.py",
     "test:cross": ".venv-nir/bin/python tools/run_cross_checks.py",
     "test:prune-group": "node --test test/prune.test.mjs test/grouping.test.mjs test/prune_group_e2e.test.mjs && .venv-nir/bin/python tools/run_prune_group_checks.py",
+    "test:subgraph": "node --test test/subgraph_edit.test.mjs && .venv-nir/bin/python tools/run_subgraph_checks.py",
     "gen:fixtures": ".venv-nir/bin/python tools/gen_all_types_nir.py && .venv-nir/bin/python tools/gen_shape_expectations.py"
   },
   "dependencies": {

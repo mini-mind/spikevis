@@ -56,6 +56,9 @@ function nodeIssues(node, path, issues) {
           kind: 'node-shape',
           path,
           message: `节点 '${path}' 的参数形状不一致(官方要求同形): ${dims}`,
+          // 结构化文案:界面按当前语言出模板(i18n validate.nodeShape),message 是中文正典
+          code: 'validate.nodeShape',
+          params: { node: path, dims },
         });
         return;
       }
@@ -75,6 +78,8 @@ function nodeIssues(node, path, issues) {
         kind: 'node-shape',
         path,
         message: `节点 '${path}' 的 w_in 形状 [${s.join(',')}] 与参数形状 [${ref ? ref.join(',') : '?'}] 不兼容(官方只接受标量或同形)`,
+        code: 'validate.wInShape',
+        params: { node: path, shape: s.join(','), ref: ref ? ref.join(',') : '?' },
       });
     }
   };
@@ -100,6 +105,8 @@ function nodeIssues(node, path, issues) {
           kind: 'node-shape',
           path,
           message: `节点 '${path}' 的 weight 至少要二维(官方断言 Weight must be at least 2D),现在是 [${w.shape.join(',')}]`,
+          code: 'validate.weightDims',
+          params: { node: path, shape: w.shape.join(',') },
         });
       }
       break;
@@ -110,12 +117,14 @@ function nodeIssues(node, path, issues) {
       if (p && isStringDtype(p.dtype)) {
         const s = typeof p.data === 'string' ? p.data : p.data[0];
         if (s !== 'same' && s !== 'valid') {
-          issues.push({
-            severity: 'error',
-            kind: 'node-shape',
-            path,
-            message: `节点 '${path}' 的 padding 字符串只允许 'same' 或 'valid'(官方断言),现在是 '${s}'`,
-          });
+            issues.push({
+              severity: 'error',
+              kind: 'node-shape',
+              path,
+              message: `节点 '${path}' 的 padding 字符串只允许 'same' 或 'valid'(官方断言),现在是 '${s}'`,
+              code: 'validate.padding',
+              params: { node: path, value: s },
+            });
         }
       }
       break;
@@ -140,6 +149,8 @@ function edgeIssues(graph, types, pathPrefix, issues) {
         path: qualify(dst),
         edge: [qualify(src), qualify(dst)],
         message: `类型不一致: '${src}' 的输出 [${srcOut.join(',')}] 与 '${dst}' 的输入 [${dstIn.join(',')}] 对不上`,
+        code: 'validate.typeMismatch',
+        params: { src, dst, srcOut: srcOut.join(','), dstIn: dstIn.join(',') },
       });
     }
   }
@@ -181,6 +192,8 @@ function subgraphPortIssues(graph, pathPrefix, issues) {
           kind: 'subgraph-ports',
           path: p,
           message: `子图 '${p}' 有 ${nIn} 个内部 Input 节点;官方库类型检查只支持单入单出子图,导出后 nir.read 将失败(实测)`,
+          code: 'validate.subgraphInPorts',
+          params: { graph: p, count: nIn },
         });
       }
       if (nOut > 1) {
@@ -189,6 +202,8 @@ function subgraphPortIssues(graph, pathPrefix, issues) {
           kind: 'subgraph-ports',
           path: p,
           message: `子图 '${p}' 有 ${nOut} 个内部 Output 节点;官方库类型检查只支持单入单出子图,导出后 nir.read 将失败(实测)`,
+          code: 'validate.subgraphOutPorts',
+          params: { graph: p, count: nOut },
         });
       }
       subgraphPortIssues(node, p, issues);
@@ -225,6 +240,8 @@ export function validateDocument(doc) {
       severity: 'error',
       kind: 'inference-failed',
       message: `形状推断失败: ${e.message}`,
+      code: 'validate.inferenceFailed',
+      params: { reason: e.message },
     });
     declaredTypeMap(doc.graph, types, '');
     // 第 3 层:逐边退化诊断
@@ -237,33 +254,72 @@ export function validateDocument(doc) {
 /**
  * 比较"原文档 -> 当前文档"里被改动的根图节点名(画布上的脏标记)。
  * 字段或元数据任何变化、以及边端点变化牵连的节点,都算被改动;新节点也算。
+ * 子图内部的改动会把顶层的子图节点标脏(内部变了,外面这块"积木"就是变过的)。
  */
 export function changedNodeNames(originalDoc, currentDoc) {
+  return diffGraphNames(
+    (originalDoc && originalDoc.graph) || { children: {} },
+    (currentDoc && currentDoc.graph) || { children: {} },
+  );
+}
+
+/**
+ * 比较"原文档 -> 当前文档"里某一层(子图内部)被改动的局部节点名。
+ * path 是进入子图的路径;该层在原文档里不存在(本会话新建的组)时,
+ * 当前层的全部节点都算改动;在当前文档里不存在(被撤销掉)时返回空集。
+ */
+export function changedNamesAt(originalDoc, currentDoc, path) {
+  const walk = (doc) => {
+    let cur = doc && doc.graph;
+    for (const name of path || []) {
+      if (!cur || cur.type !== 'NIRGraph' || !cur.children || !(name in cur.children)) return undefined;
+      cur = cur.children[name];
+    }
+    return cur;
+  };
+  const before = walk(originalDoc);
+  const after = walk(currentDoc);
+  if (!after || after.type !== 'NIRGraph') return new Set();
+  if (!before || before.type !== 'NIRGraph') {
+    return new Set(Object.keys(after.children || {}));
+  }
+  return diffGraphNames(before, after);
+}
+
+/** 两个图节点记录的局部差分:返回被改动的子节点名集合(fields/metadata/子图内部差分/边端点牵连) */
+function diffGraphNames(beforeGraph, afterGraph) {
   const changed = new Set();
-  const beforeNodes = (originalDoc && originalDoc.graph.children) || {};
-  const afterNodes = (currentDoc && currentDoc.graph.children) || {};
+  const beforeNodes = beforeGraph.children || {};
+  const afterNodes = afterGraph.children || {};
   const metaSame = (a, b) => JSON.stringify(a || {}) === JSON.stringify(b || {});
+  const fieldsDiffer = (before, after) => {
+    const keys = new Set([...Object.keys(before.fields || {}), ...Object.keys(after.fields || {})]);
+    if (!metaSame(before.metadata, after.metadata)) return true;
+    for (const k of keys) {
+      const va = (before.fields || {})[k];
+      const vb = (after.fields || {})[k];
+      if (!va || !vb || !valuesEqual(va, vb)) return true;
+    }
+    return false;
+  };
   for (const [name, after] of Object.entries(afterNodes)) {
     const before = beforeNodes[name];
     if (!before) {
       changed.add(name);
       continue;
     }
-    const keys = new Set([...Object.keys(before.fields || {}), ...Object.keys(after.fields || {})]);
-    let differs = !metaSame(before.metadata, after.metadata);
-    for (const k of keys) {
-      const va = (before.fields || {})[k];
-      const vb = (after.fields || {})[k];
-      if (!va || !vb || !valuesEqual(va, vb)) {
-        differs = true;
-        break;
-      }
+    if (fieldsDiffer(before, after)) {
+      changed.add(name);
+      continue;
     }
-    if (differs) changed.add(name);
+    // 两边都是子图:内部有任何差异(递归),这块子图节点就算被改过
+    if (after.type === 'NIRGraph' && before.type === 'NIRGraph' && after.children) {
+      if (diffGraphNames(before, after).size > 0) changed.add(name);
+    }
   }
   // 边端点被牵连的节点:只标真正增删的边,不动其余
-  const beforeEdges = ((originalDoc && originalDoc.graph.edgePairs) || []).map((e) => e.join('->'));
-  const afterEdges = ((currentDoc && currentDoc.graph.edgePairs) || []).map((e) => e.join('->'));
+  const beforeEdges = (beforeGraph.edgePairs || []).map((e) => e.join('->'));
+  const afterEdges = (afterGraph.edgePairs || []).map((e) => e.join('->'));
   const beforeSet = new Set(beforeEdges);
   const afterSet = new Set(afterEdges);
   const touched = [];

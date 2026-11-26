@@ -107,14 +107,20 @@ export function channelInfo(doc, nodePath) {
   if (!node) throw new Error(`channelInfo: node '${name}' not found`);
   const kind = channelKind(node.type);
   if (kind === 'blocker') {
+    const isGraph = isGraphRecord(node);
     const reason = node.type === 'Flatten'
       ? 'Flatten 把通道和空间维混在一起,不能自动剪枝'
-      : (isGraphRecord(node) ? '子图节点:需先展开(解组)或进入内部手工处理'
+      : (isGraph ? '子图节点:需先展开(解组)或进入内部手工处理'
         : `${node.type} 传播到它就停,不能自动剪枝`);
-    return { kind, type: node.type, name, reason, canPruneIn: false, canPruneOut: false };
+    const reasonX = node.type === 'Flatten'
+      ? { code: 'prune.blockerFlatten', params: {} }
+      : (isGraph ? { code: 'prune.blockerGraph', params: {} }
+        : { code: 'prune.blockerGeneric', params: { type: node.type } });
+    return { kind, type: node.type, name, reason, reasonX, canPruneIn: false, canPruneOut: false };
   }
   if (kind === 'tied') {
     const width = tiedWidth(node);
+    const note = '该节点输入输出通道相同,剪哪个方向效果一样(参数数组按同一下标裁)';
     return {
       kind,
       type: node.type,
@@ -123,11 +129,21 @@ export function channelInfo(doc, nodePath) {
       outWidth: width,
       canPruneIn: true,
       canPruneOut: true,
-      note: '该节点输入输出通道相同,剪哪个方向效果一样(参数数组按同一下标裁)',
+      note,
+      noteX: { code: 'prune.noteTied', params: {} },
     };
   }
   const widths = weightWidths(node);
   const isConv = node.type === 'Conv1d' || node.type === 'Conv2d';
+  const groups = isConv ? convGroups(node) : undefined;
+  const note = isConv
+    ? `weight [out, in, kernel...]:第 0 维(输出通道)=行,第 1 维(输入通道)=列;${groups !== 1 ? `groups=${groups},裁输入通道会被拒绝` : '裁输入通道要求 groups=1'}`
+    : 'weight [out, in]:第 0 维(输出通道)=行,最后一维(输入通道)=列';
+  const noteX = isConv
+    ? (groups !== 1
+      ? { code: 'prune.noteConvGrouped', params: { groups } }
+      : { code: 'prune.noteConvPlain', params: {} })
+    : { code: 'prune.noteWeight2d', params: {} };
   return {
     kind,
     type: node.type,
@@ -137,17 +153,17 @@ export function channelInfo(doc, nodePath) {
     hasBias: node.fields.bias !== undefined,
     canPruneIn: true,
     canPruneOut: true,
-    groups: isConv ? convGroups(node) : undefined,
-    note: isConv
-      ? `weight [out, in, kernel...]:第 0 维(输出通道)=行,第 1 维(输入通道)=列;${convGroups(node) !== 1 ? `groups=${convGroups(node)},裁输入通道会被拒绝` : '裁输入通道要求 groups=1'}`
-      : 'weight [out, in]:第 0 维(输出通道)=行,最后一维(输入通道)=列',
+    groups,
+    note,
+    noteX,
   };
 }
 
-/** 保留下标规范化:去重、升序、范围检查;有错返回 { error } */
-function normalizeKeep(keep, width, what, errors) {
+/** 保留下标规范化:去重、升序、范围检查;有错返回 { error }。errors/errorsX 逐条对齐 */
+function normalizeKeep(keep, width, what, errors, errorsX, node) {
   if (!Array.isArray(keep) || keep.length === 0) {
     errors.push(`${what}: 保留下标不能为空`);
+    errorsX.push({ code: 'prune.errKeepEmpty', params: { node } });
     return null;
   }
   const seen = new Set();
@@ -156,10 +172,12 @@ function normalizeKeep(keep, width, what, errors) {
     const i = typeof raw === 'bigint' ? Number(raw) : raw;
     if (!Number.isInteger(i) || i < 0) {
       errors.push(`${what}: 下标必须是 >= 0 的整数,收到 ${JSON.stringify(raw)}`);
+      errorsX.push({ code: 'prune.errKeepInvalid', params: { node, raw: JSON.stringify(raw) } });
       return null;
     }
     if (i >= width) {
       errors.push(`${what}: 下标 ${i} 越界(通道数只有 ${width})`);
+      errorsX.push({ code: 'prune.errKeepRange', params: { node, index: i, width } });
       return null;
     }
     if (!seen.has(i)) {
@@ -240,6 +258,7 @@ export function planPruneChannels(doc, specs) {
   const parentPath = specs[0].path.slice(0, -1);
   const graph = graphAt(doc, parentPath);
   const errors = [];
+  const errorsX = []; // 与 errors 逐条对齐的结构化文案,界面用 tv() 本地化
   const manual = [];
   const pruned = [];
   const visited = new Map(); // key -> keep 串(汇合一致性检查)
@@ -251,6 +270,7 @@ export function planPruneChannels(doc, specs) {
     if (!node) throw new Error(`planPruneChannels: node '${name}' not found`);
     if (spec.axis !== 'in' && spec.axis !== 'out') {
       errors.push(`节点 '${name}': axis 必须是 'in' 或 'out'`);
+      errorsX.push({ code: 'prune.errAxis', params: { name } });
       continue;
     }
     const kind = channelKind(node.type);
@@ -261,25 +281,33 @@ export function planPruneChannels(doc, specs) {
       width = spec.axis === 'out' ? (w ? w.outWidth : null) : (w ? w.inWidth : null);
     } else {
       errors.push(`节点 '${name}'(${node.type})没有可剪的通道维,传播会停在 blocker 上`);
+      errorsX.push({ code: 'prune.errBlocker', params: { name, type: node.type } });
       continue;
     }
     if (width == null) {
       errors.push(`节点 '${name}'(${node.type})读不出通道数,请先修好该节点的参数`);
+      errorsX.push({ code: 'prune.errNoWidth', params: { name, type: node.type } });
       continue;
     }
-    const keep = normalizeKeep(spec.keep, width, `节点 '${name}'`, errors);
+    const keep = normalizeKeep(spec.keep, width, `节点 '${name}'`, errors, errorsX, name);
     if (keep) queue.push({ name, axis: spec.axis, keep });
   }
 
   const edges = graph.edgePairs || [];
+  // 计划条目的中文说明与结构化文案成对生成
   const describeEdit = (node, fields, from, to, keep) =>
     `${node.type} 参数 ${fields.join(', ')} 按下标 [${keep}] 裁剪: ${from} -> ${to}`;
+  const describeEditX = (node, fields, from, to, keep) => ({
+    code: 'prune.detailParams',
+    params: { type: node.type, fields: fields.join(', '), keep: keep.join(', '), from, to },
+  });
 
   while (queue.length > 0) {
     const ev = queue.shift();
     const node = graph.children[ev.name];
     if (!node) {
       errors.push(`边引用了不存在的节点 '${ev.name}'`);
+      errorsX.push({ code: 'prune.errEdgeNodeMissing', params: { name: ev.name } });
       continue;
     }
     const kind = channelKind(node.type);
@@ -291,18 +319,27 @@ export function planPruneChannels(doc, specs) {
           `节点 '${ev.name}' 的${ev.axis === 'in' ? '输入' : '输出'}端汇合处下标不一致:`
           + ` 先前要保留 [${visited.get(key)}],这条传播要保留 [${keepKey}];操作整体拒绝`,
         );
+        errorsX.push(ev.axis === 'in'
+          ? { code: 'prune.errConvergenceIn', params: { name: ev.name, prev: visited.get(key), next: keepKey } }
+          : { code: 'prune.errConvergenceOut', params: { name: ev.name, prev: visited.get(key), next: keepKey } });
       }
       continue;
     }
     visited.set(key, keepKey);
 
     if (kind === 'blocker') {
+      const isGraph = isGraphRecord(node);
       const reason = node.type === 'Flatten'
         ? 'Flatten 会把通道和空间维混在一起,传播到它停止;其输入/输出类型需人工核对'
-        : (isGraphRecord(node)
+        : (isGraph
           ? '子图节点内部本轮不自动裁剪;如需剪枝请先展开(解组)或手工进内部处理'
           : `${node.type} 按约定不自动穿过,传播到它停止;其下游是否需要人工调整请核对`);
-      manual.push({ name: ev.name, type: node.type, port: ev.axis, reason });
+      const reasonX = node.type === 'Flatten'
+        ? { code: 'prune.manualFlatten', params: {} }
+        : (isGraph
+          ? { code: 'prune.manualGraph', params: {} }
+          : { code: 'prune.manualGeneric', params: { type: node.type } });
+      manual.push({ name: ev.name, type: node.type, port: ev.axis, reason, reasonX });
       continue;
     }
 
@@ -311,9 +348,12 @@ export function planPruneChannels(doc, specs) {
       if (node.type === 'Input' || node.type === 'Output') {
         const old = node.fields.shape;
         const next = newShapeFieldValue(node, ev.keep.length);
+        const from = valueToIntArray(old).join(',');
+        const to = valueToIntArray(next).join(',');
         pruned.push({
           name: ev.name, field: 'shape', value: next,
-          detail: `shape [${valueToIntArray(old).join(',')}] -> [${valueToIntArray(next).join(',')}]`,
+          detail: `shape [${from}] -> [${to}]`,
+          detailX: { code: 'prune.detailShape', params: { from, to } },
         });
       } else {
         const width = tiedWidth(node);
@@ -329,6 +369,7 @@ export function planPruneChannels(doc, specs) {
         }
         if (bad) {
           errors.push(`节点 '${ev.name}' 的字段 '${bad}' 首维 (${node.fields[bad].shape[0]}) 与通道数 (${width}) 不一致,拒绝裁剪`);
+          errorsX.push({ code: 'prune.errFirstDim', params: { name: ev.name, field: bad, dim: node.fields[bad].shape[0], width } });
           continue;
         }
         for (const fieldName of touched) {
@@ -336,10 +377,12 @@ export function planPruneChannels(doc, specs) {
           pruned.push({
             name: ev.name, field: fieldName, value: next,
             detail: describeEdit(node, [fieldName], shapeText(node.fields[fieldName]), shapeText(next), ev.keep),
+            detailX: describeEditX(node, [fieldName], shapeText(node.fields[fieldName]), shapeText(next), ev.keep),
           });
         }
         if (touched.length === 0) {
           errors.push(`节点 '${ev.name}' 没有可裁的一维参数数组`);
+          errorsX.push({ code: 'prune.errNoArrays', params: { name: ev.name } });
           continue;
         }
       }
@@ -356,23 +399,27 @@ export function planPruneChannels(doc, specs) {
     if (ev.axis === 'out') {
       if (widths.outWidth == null || node.fields.weight.shape[0] !== widths.outWidth) {
         errors.push(`节点 '${ev.name}' 的 weight 形状读不出输出通道数`);
+        errorsX.push({ code: 'prune.errWeightShape', params: { name: ev.name } });
         continue;
       }
       const wNext = sliceAxis(node.fields.weight, 0, ev.keep);
       pruned.push({
         name: ev.name, field: 'weight', value: wNext,
         detail: `weight ${shapeText(node.fields.weight)} -> ${shapeText(wNext)}(裁输出通道=行)`,
+        detailX: { code: 'prune.detailWeightOut', params: { from: shapeText(node.fields.weight), to: shapeText(wNext) } },
       });
       const bias = node.fields.bias;
       if (bias) {
         if (bias.shape.length !== 1 || bias.shape[0] !== widths.outWidth) {
           errors.push(`节点 '${ev.name}' 的 bias 形状 ${shapeText(bias)} 与输出通道数 (${widths.outWidth}) 不一致,拒绝裁剪`);
+          errorsX.push({ code: 'prune.errBiasShape', params: { name: ev.name, bias: shapeText(bias), width: widths.outWidth } });
           continue;
         }
         const bNext = sliceAxis(bias, 0, ev.keep);
         pruned.push({
           name: ev.name, field: 'bias', value: bNext,
           detail: `bias ${shapeText(bias)} -> ${shapeText(bNext)}`,
+          detailX: { code: 'prune.detailBias', params: { from: shapeText(bias), to: shapeText(bNext) } },
         });
       }
       for (const [src, dst] of edges) {
@@ -382,6 +429,7 @@ export function planPruneChannels(doc, specs) {
       const isConv = node.type === 'Conv1d' || node.type === 'Conv2d';
       if (isConv && convGroups(node) !== 1) {
         errors.push(`节点 '${ev.name}' 是分组卷积(groups=${convGroups(node)}),裁输入通道会破坏分组结构,已拒绝`);
+        errorsX.push({ code: 'prune.errGroupedConv', params: { name: ev.name, groups: convGroups(node) } });
         continue;
       }
       const lastAxis = widths.inAxis;
@@ -389,6 +437,7 @@ export function planPruneChannels(doc, specs) {
       pruned.push({
         name: ev.name, field: 'weight', value: wNext,
         detail: `weight ${shapeText(node.fields.weight)} -> ${shapeText(wNext)}(裁输入通道=列)`,
+        detailX: { code: 'prune.detailWeightIn', params: { from: shapeText(node.fields.weight), to: shapeText(wNext) } },
       });
       for (const [src, dst] of edges) {
         if (dst === ev.name) queue.push({ name: src, axis: 'out', keep: ev.keep });
@@ -402,6 +451,7 @@ export function planPruneChannels(doc, specs) {
     pruned,
     manual,
     errors,
+    errorX: errorsX,
   };
 }
 
@@ -412,7 +462,14 @@ export function planPruneChannels(doc, specs) {
 export function applyPruneChannels(doc, specs) {
   const plan = planPruneChannels(doc, specs);
   if (!plan.ok) {
-    throw new Error(`通道剪枝被拒绝: ${plan.errors.join('; ')}`);
+    const error = new Error(`通道剪枝被拒绝: ${plan.errors.join('; ')}`);
+    // 结构化文案:界面用 tvError() 出当前语言(list 里的条目逐条本地化)
+    error.structured = {
+      code: 'prune.rejected',
+      params: { reasons: plan.errors.join('; ') },
+      list: plan.errorX,
+    };
+    throw error;
   }
   const parentPath = plan.parentPath;
   const next = transformGraph(doc, parentPath, (graph) => {

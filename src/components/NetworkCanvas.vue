@@ -25,7 +25,7 @@
           <span class="logo-text">NIR</span>
         </div>
         <button class="open-button" @click="openFileBrowser">
-          Open Model...
+          {{ t('canvas.openModel') }}
         </button>
         <input
           ref="fileInput"
@@ -42,9 +42,9 @@
 
     <!-- 连线模式横幅 -->
     <div v-if="hasModel && connectMode" class="connect-banner">
-      <span v-if="!connectSource">连线模式:点击起点节点</span>
-      <span v-else>连线模式:从 "{{ connectSource }}" 出发,点击目标节点;点击空白处取消</span>
-      <button class="banner-button" @click.stop="cancelConnect">退出连线</button>
+      <span v-if="!connectSource">{{ t('canvas.connectPick') }}</span>
+      <span v-else>{{ t('canvas.connectFrom', { src: connectSource }) }}</span>
+      <button class="banner-button" @click.stop="cancelConnect">{{ t('canvas.exitConnect') }}</button>
     </div>
 
     <!-- 右键菜单 -->
@@ -55,26 +55,35 @@
       @click.stop
     >
       <template v-if="contextMenu.targetType === 'node'">
-        <div class="context-item" @click="emitAction({ kind: 'request-prune', name: contextMenu.targetId })">通道剪枝</div>
-        <div class="context-item" @click="startConnectFrom(contextMenu.targetId)">从此节点连线</div>
-        <div class="context-item" @click="emitAction({ kind: 'request-rename', name: contextMenu.targetId })">重命名节点</div>
+        <div
+          v-if="targetPrunable"
+          class="context-item"
+          @click="emitAction({ kind: 'request-prune', name: contextMenu.targetId })"
+        >{{ t('canvas.ctxPrune') }}</div>
+        <div class="context-item" @click="startConnectFrom(contextMenu.targetId)">{{ t('canvas.ctxConnectFrom') }}</div>
+        <div class="context-item" @click="emitAction({ kind: 'request-rename', name: contextMenu.targetId })">{{ t('canvas.ctxRename') }}</div>
         <div
           v-if="selectedIds.length >= 2 && selectedIds.includes(contextMenu.targetId)"
           class="context-item"
           @click="emitAction({ kind: 'request-group', names: [...selectedIds] })"
-        >编成一组（{{ selectedIds.length }} 个节点）</div>
+        >{{ t('canvas.ctxGroup', { n: selectedIds.length }) }}</div>
+        <div
+          v-if="targetNodeType === 'NIRGraph'"
+          class="context-item"
+          @click="emitAction({ kind: 'request-enter', name: contextMenu.targetId })"
+        >{{ t('subgraph.enter') }}</div>
         <div
           v-if="targetNodeType === 'NIRGraph'"
           class="context-item"
           @click="emitAction({ kind: 'request-ungroup', name: contextMenu.targetId })"
-        >展开到当前层</div>
-        <div class="context-item danger" @click="emitAction({ kind: 'request-remove', name: contextMenu.targetId })">删除节点</div>
+        >{{ t('canvas.ctxUngroup') }}</div>
+        <div class="context-item danger" @click="emitAction({ kind: 'request-remove', name: contextMenu.targetId })">{{ t('canvas.ctxRemove') }}</div>
       </template>
       <template v-else-if="contextMenu.targetType === 'edge'">
-        <div class="context-item danger" @click="emitAction({ kind: 'request-disconnect', src: contextMenu.targetId[0], dst: contextMenu.targetId[1] })">断开此连线</div>
+        <div class="context-item danger" @click="emitAction({ kind: 'request-disconnect', src: contextMenu.targetId[0], dst: contextMenu.targetId[1] })">{{ t('canvas.ctxDisconnect') }}</div>
       </template>
       <template v-else>
-        <div class="context-item" @click="emitAction({ kind: 'request-add-node' })">新建节点</div>
+        <div class="context-item" @click="emitAction({ kind: 'request-add-node' })">{{ t('canvas.ctxAddNode') }}</div>
       </template>
     </div>
   </div>
@@ -87,6 +96,7 @@ import { DataSet } from 'vis-data'
 import { ElMessage } from 'element-plus'
 import { openNirFile } from '../io/nirIO.js'
 import { loadJsonModel } from '../io/jsonLoader.js'
+import { t } from '../i18n/index.js'
 
 export default {
   name: 'NetworkCanvas',
@@ -124,6 +134,12 @@ export default {
     sessionKey: {
       type: Number,
       default: 0
+    },
+    // 进入子图的视图路径字符串(如 'block' 或 'block/inner');变化 = 换层,
+    // 画布整体重排(每层是不同的图),位置存储也按层分开记
+    viewKey: {
+      type: String,
+      default: ''
     }
   },
   emits: ['nodeSelect', 'nodeDeselect', 'selectionChange', 'fileDrop', 'openFile', 'action'],
@@ -144,6 +160,8 @@ export default {
     // 初始层级布局稳定后冻结物理引擎,之后的编辑不再整体重排
     const physicsFrozen = ref(false)
     let lastSessionKey = null
+    // 上一次的视图层键(进入子图/返回上层时画布整体重排)
+    let lastViewKey = null
 
     // 主题取色:颜色只在 src/styles/theme.css 一处定义,脚本用变量名现读。
     // documentElement 在模块执行前已存在,:root 变量随时可读。
@@ -156,6 +174,11 @@ export default {
     const themeColor = (name) => {
       if (!(name in themeColors)) themeColors[name] = cssVar(name)
       return themeColors[name]
+    }
+    // 读无单位数值变量(如 --sv-min-scale: 0.75),解析失败回退 fallback
+    const numVar = (name, fallback) => {
+      const v = Number.parseFloat(cssVar(name))
+      return Number.isFinite(v) ? v : fallback
     }
 
     // 节点类别:标题行颜色按类别区分(输入输出/神经元/突触权重/池化形状/子图)
@@ -237,12 +260,15 @@ export default {
     }
     const networkOptions = buildNetworkOptions()
 
+    // 会话位置键:按"视图层 + 节点名"分开记,根层与各子图层的同名节点互不串位
+    const posKey = (id) => (props.viewKey ? `${props.viewKey}\u0001${id}` : id)
+
     // 把当前画布坐标抄进会话存储(编辑差量更新后调用,供撤销/重做恢复位置)
     const capturePositions = () => {
       if (!network.value) return
       const pos = network.value.getPositions()
       for (const id of Object.keys(pos)) {
-        positionStore.set(id, { x: pos[id].x, y: pos[id].y })
+        positionStore.set(posKey(id), { x: pos[id].x, y: pos[id].y })
       }
     }
 
@@ -287,14 +313,200 @@ export default {
     }
 
     // 初始布局稳定后:关物理引擎与层级布局,后续编辑不再整体重排;
-    // 先推开可能存在的重叠,再适配视图,让载入后的图自动填满画布
+    // 先推开可能存在的重叠,再适配视图(带最小缩放下限),让载入后的图自动填满画布
     const freezeLayout = () => {
       if (!network.value || physicsFrozen.value) return
       physicsFrozen.value = true
       network.value.setOptions({ physics: { enabled: false }, layout: { hierarchical: { enabled: false } } })
       resolveOverlaps()
-      network.value.fit({ animation: false })
+      fitWithMinScale()
       capturePositions()
+    }
+
+    // 适配视图,但缩放不低于 --sv-min-scale:大图塞不下就保持可读的最小缩放、
+    // 视图居中在图中心,允许用户平移看两端;不为塞满整条链把节点文字缩没
+    const fitWithMinScale = () => {
+      if (!network.value) return
+      network.value.fit({ animation: false })
+      const minScale = numVar('--sv-min-scale', 0.75)
+      if (network.value.getScale() < minScale) {
+        const center = network.value.getViewPosition()
+        network.value.moveTo({ position: center, scale: minScale, animation: false })
+      }
+    }
+
+    // ---------- 选择同步与多选增强 ----------
+    // 选择状态变化(select/deselect 都会带出完整清单;多选靠 interaction.multiselect)
+    // 提升到 setup 作用域:框选/范围选等程序化选中后也要走同一份同步
+    const syncSelection = () => {
+      if (!network.value) return
+      const ids = network.value.getSelectedNodes()
+      selectedIds.value = ids
+      emit('selectionChange', ids)
+      if (ids.length === 1) {
+        // Shift+点击的 tap 也会走到这里:按下时带 Shift 的选中不做范围选锚点
+        if (!downHadShift) rangeAnchorId = ids[0]
+        emit('nodeSelect', nodes.value.get(ids[0]))
+      } else {
+        emit('nodeDeselect')
+      }
+    }
+
+    // Shift+点击范围选的锚点(最近一次不带 Shift 的单选节点)
+    let rangeAnchorId = null
+    // pointerdown 时 Shift 是否按下:tap 先于 DOM click 触发,锚点判定要用按下瞬间的状态
+    let downHadShift = false
+    // 上次 pointerdown 的屏幕坐标:区分"点击"与"拖拽"(位移小于阈值才算点击)
+    let lastDownPoint = null
+    // 空白拖拽框选 / 中键平移的会话状态(框选拦截在捕获阶段,vis 的空白拖拽默认是平移)
+    let boxState = null
+    let boundPointerEl = null
+
+    // 画布内坐标(与 vis 的 pointer.DOM 同一坐标系):容器相对坐标 + hit test
+    const hitAt = (clientX, clientY) => {
+      const rect = networkContainer.value.getBoundingClientRect()
+      const p = { x: clientX - rect.left, y: clientY - rect.top }
+      const nodeId = network.value.getNodeAt(p)
+      const edgeId = nodeId !== undefined ? undefined : network.value.getEdgeAt(p)
+      return { p, nodeId, edgeId }
+    }
+
+    // 空白处按下左键:自己画选框(替换 vis 的默认平移);additive = Ctrl/Cmd 按住时在原选中上累加。
+    // 位移极小的抬起按"点空白"处理,补上 vis tap 里的清除选中。
+    const startBoxSelect = (start, additive) => {
+      const el = networkContainer.value
+      const overlay = document.createElement('div')
+      overlay.className = 'sv-box-select'
+      el.appendChild(overlay)
+      boxState = { additive: !!additive, startX: start.x, startY: start.y, endX: start.x, endY: start.y, overlay }
+      const onMove = (ev) => {
+        if (!boxState) return
+        const rect = el.getBoundingClientRect()
+        boxState.endX = ev.clientX - rect.left
+        boxState.endY = ev.clientY - rect.top
+        overlay.classList.add('active')
+        overlay.style.left = Math.min(boxState.startX, boxState.endX) + 'px'
+        overlay.style.top = Math.min(boxState.startY, boxState.endY) + 'px'
+        overlay.style.width = Math.abs(boxState.endX - boxState.startX) + 'px'
+        overlay.style.height = Math.abs(boxState.endY - boxState.startY) + 'px'
+      }
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+        const state = boxState
+        boxState = null
+        overlay.remove()
+        if (!state || !network.value) return
+        if (Math.abs(state.endX - state.startX) < 4 && Math.abs(state.endY - state.startY) < 4) {
+          // 位移极小 = 空白处单击:清空选中
+          network.value.unselectAll()
+          syncSelection()
+          return
+        }
+        // 节点中心落在框内即选中
+        const pos = network.value.getPositions()
+        const x1 = Math.min(state.startX, state.endX)
+        const x2 = Math.max(state.startX, state.endX)
+        const y1 = Math.min(state.startY, state.endY)
+        const y2 = Math.max(state.startY, state.endY)
+        const picked = []
+        for (const id of Object.keys(pos)) {
+          const domPos = network.value.canvasToDOM(pos[id])
+          if (domPos.x >= x1 && domPos.x <= x2 && domPos.y >= y1 && domPos.y <= y2) picked.push(id)
+        }
+        let finalIds = picked
+        if (state.additive) {
+          const set = new Set(network.value.getSelectedNodes())
+          for (const id of picked) set.add(id)
+          finalIds = [...set]
+        }
+        network.value.selectNodes(finalIds, false)
+        syncSelection()
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    }
+
+    // 中键拖拽平移(空白左键拖拽改成框选后,平移挪到中键;滚轮缩放不变)
+    const startMiddlePan = (e) => {
+      const scale = network.value.getScale()
+      const startView = network.value.getViewPosition()
+      const startX = e.clientX
+      const startY = e.clientY
+      const onMove = (ev) => {
+        if (!network.value) return
+        network.value.moveTo({
+          position: { x: startView.x - (ev.clientX - startX) / scale, y: startView.y - (ev.clientY - startY) / scale },
+          animation: false
+        })
+      }
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove)
+        window.removeEventListener('pointerup', onUp)
+      }
+      window.addEventListener('pointermove', onMove)
+      window.addEventListener('pointerup', onUp)
+    }
+
+    // 捕获阶段的画布 pointerdown:拦截空白左键(框选)与中键(平移),
+    // 其余(节点/边上的左键、右键菜单)原样交给 vis-network
+    const onCanvasPointerDown = (e) => {
+      if (!network.value) return
+      if (e.button === 1) {
+        // 中键:preventDefault 挡浏览器滚轮滑动,stopPropagation 不让 vis 把它当拖节点
+        // (连线模式下也允许中键平移,横幅不挡导航)
+        e.preventDefault()
+        e.stopPropagation()
+        startMiddlePan(e)
+        return
+      }
+      if (e.button !== 0) return
+      // 连线模式的左键(选起点/终点、点空白取消)整体交给 vis 与既有 click 逻辑
+      if (props.connectMode) return
+      downHadShift = e.shiftKey
+      lastDownPoint = { x: e.clientX, y: e.clientY }
+      const { p, nodeId, edgeId } = hitAt(e.clientX, e.clientY)
+      if (nodeId === undefined && edgeId === undefined && !e.shiftKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        startBoxSelect(p, e.ctrlKey || e.metaKey)
+      }
+    }
+
+    // Shift+点击 = 范围选:从锚点到该节点,按画布 x 位置排序取连续一段(LR 链式布局的自然"范围")
+    const shiftRangeSelect = (endId) => {
+      const pos = network.value.getPositions()
+      const ordered = Object.keys(pos)
+        .map((id) => ({ id, x: pos[id].x, y: pos[id].y }))
+        .sort((a, b) => (a.x - b.x) || (a.y - b.y))
+      const anchor = rangeAnchorId !== null && rangeAnchorId in pos ? rangeAnchorId : endId
+      const idxA = ordered.findIndex((n) => n.id === anchor)
+      const idxB = ordered.findIndex((n) => n.id === endId)
+      if (idxA === -1 || idxB === -1) return
+      const range = ordered.slice(Math.min(idxA, idxB), Math.max(idxA, idxB) + 1).map((n) => n.id)
+      network.value.selectNodes(range, false)
+      syncSelection()
+    }
+
+    // 捕获阶段的 DOM click:vis 的 tap 在 mouseup 就已把选中替换成被点节点,
+    // 这里随后按 Shift+点击把范围恢复成锚点..该节点的连续段
+    const onCanvasClickCapture = (e) => {
+      if (!network.value || !e.shiftKey || e.button !== 0 || props.connectMode) return
+      if (lastDownPoint && Math.hypot(e.clientX - lastDownPoint.x, e.clientY - lastDownPoint.y) > 5) return
+      const { nodeId } = hitAt(e.clientX, e.clientY)
+      if (nodeId === undefined) return
+      e.preventDefault()
+      e.stopPropagation()
+      shiftRangeSelect(nodeId)
+    }
+
+    // 原生监听只绑一次(换文件时画布实例销毁重建,但容器元素不变)
+    const bindCanvasPointerHelpers = () => {
+      const el = networkContainer.value
+      if (!el || boundPointerEl === el) return
+      boundPointerEl = el
+      el.addEventListener('pointerdown', onCanvasPointerDown, true)
+      el.addEventListener('click', onCanvasClickCapture, true)
     }
 
     const initNetwork = () => {
@@ -307,26 +519,16 @@ export default {
           networkOptions
         ))
 
-        // 选择状态变化(select/deselect 都会带出完整清单;多选靠 interaction.multiselect)
-        const syncSelection = () => {
-          const ids = network.value.getSelectedNodes()
-          selectedIds.value = ids
-          emit('selectionChange', ids)
-          if (ids.length === 1) {
-            emit('nodeSelect', nodes.value.get(ids[0]))
-          } else {
-            emit('nodeDeselect')
-          }
-        }
         network.value.on('select', syncSelection)
         network.value.on('deselectNode', syncSelection)
+        bindCanvasPointerHelpers()
 
-        // 双击子图节点:本轮不支持进入内部编辑,给明确提示
+        // 双击子图节点:进入子图内部编辑(App 收到 request-enter 后换视图层)
         network.value.on('doubleClick', (params) => {
           if (params.nodes.length > 0) {
             const node = nodes.value.get(params.nodes[0])
             if (node && node.type === 'NIRGraph') {
-              ElMessage.info('子图内部编辑暂不支持;可右键该节点选"展开到当前层"还原为普通节点')
+              emit('action', { kind: 'request-enter', name: node.id })
             }
           }
         })
@@ -386,6 +588,8 @@ export default {
       const node = nodes.value.get(contextMenu.value.targetId)
       return node ? node.type : ''
     })
+    // Input/Output 是模型端口:不给剪枝入口(与侧栏的动作按钮一致)
+    const targetPrunable = computed(() => !['Input', 'Output'].includes(targetNodeType.value))
 
     const closeContextMenu = () => {
       if (contextMenu.value.visible) contextMenu.value.visible = false
@@ -419,15 +623,15 @@ export default {
       }
       const center = network.value ? network.value.getViewPosition() : { x: 0, y: 0 }
       adds.forEach((item, i) => {
-        if (positionStore.has(item.id)) return
-        const known = (adjacency.get(item.id) || []).filter((nid) => positionStore.has(nid))
+        if (positionStore.has(posKey(item.id))) return
+        const known = (adjacency.get(item.id) || []).filter((nid) => positionStore.has(posKey(nid)))
         let base = center
         if (known.length > 0) {
           let sx = 0
           let sy = 0
           for (const nid of known) {
-            sx += positionStore.get(nid).x
-            sy += positionStore.get(nid).y
+            sx += positionStore.get(posKey(nid)).x
+            sy += positionStore.get(posKey(nid)).y
           }
           base = { x: sx / known.length, y: sy / known.length }
         }
@@ -470,15 +674,15 @@ export default {
           }
         }
         const marks = []
-        if (isIssue) marks.push('校验未过')
-        if (isChanged) marks.push('已修改')
+        if (isIssue) marks.push(t('canvas.markIssue'))
+        if (isChanged) marks.push(t('canvas.markChanged'))
         nodeData.push({
           id: nodeId,
           // 画布显示:卡片式多行标签(类别色类型标题 + 节点名 + 形状小字)
           label: nodeDisplayLabel(node),
           type: node.type,
-          inputText: node.inputText || '未知',
-          outputText: node.outputText || '未知',
+          inputText: node.inputText || t('canvas.unknown'),
+          outputText: node.outputText || t('canvas.unknown'),
           params: node.params || [],
           metadataText: node.metadataText || {},
           childCount: node.childCount || 0,
@@ -502,7 +706,7 @@ export default {
           to: edge[1],
           color: isIssue ? { color: issueEdgeColor, highlight: issueEdgeColor, hover: issueEdgeColor } : undefined,
           width: isIssue ? 3 : 2,
-          title: isIssue ? '这条边两端类型不一致' : undefined
+          title: isIssue ? t('canvas.edgeIssueTooltip') : undefined
         })
       })
 
@@ -525,11 +729,11 @@ export default {
         edges.value.add(edgeData)
         // 层级布局在数据加入时同步给出初始位置;重叠检测与视图适配放在
         // nextTick(实例重建完成之后)确定性执行,不依赖物理稳定事件
-        // (实测同一会话里 stabilized 事件的时序不可靠)。
+        // (实测同一会话里 stabilized 事件的时序不可靠)。fit 带最小缩放下限。
         nextTick(() => {
           if (!network.value) return
           resolveOverlaps()
-          network.value.fit({ animation: false })
+          fitWithMinScale()
           capturePositions()
         })
         return
@@ -565,6 +769,13 @@ export default {
       if (edgeAdds.length > 0) edges.value.add(edgeAdds)
       if (staleEdges.length > 0) edges.value.remove(staleEdges)
 
+      // 有节点被删时清掉悬空选中:vis 不会因节点从数据集移除而自动取消选中,
+      // 残留的旧 id 会让"Delete 再删一次"这类多选动作扑空报错
+      if (removals.length > 0) {
+        network.value.unselectAll()
+        syncSelection()
+      }
+
       nextTick(capturePositions)
     }
 
@@ -596,7 +807,7 @@ export default {
 
     // 卡片小字:子图显示子节点数,其余显示第一个带 shape 的参数(通道数/形状)
     const nodeMetaText = (node) => {
-      if (node.type === 'NIRGraph') return `${node.childCount || 0} 子节点`
+      if (node.type === 'NIRGraph') return t('canvas.childCount', { n: node.childCount || 0 })
       const shaped = (node.params || []).find((p) => Array.isArray(p.shape) && p.shape.length > 0)
       return shaped ? `[${shaped.shape.join(', ')}]` : ''
     }
@@ -641,7 +852,7 @@ export default {
           emit('fileDrop', { file, data: nirData })
         } catch (error) {
           console.error('文件解析失败:', error)
-          ElMessage.error(error.message || '文件解析失败')
+          ElMessage.error(error.message || t('msg.parseFailed'))
         }
       }
       // 清空input值,允许重复选择同一文件
@@ -677,10 +888,10 @@ export default {
           emit('fileDrop', { file, data: nirData })
         } catch (error) {
           console.error('文件解析失败:', error)
-          ElMessage.error(error.message || '文件解析失败')
+          ElMessage.error(error.message || t('msg.parseFailed'))
         }
       } else {
-        ElMessage.warning('请拖拽有效的文件')
+        ElMessage.warning(t('msg.invalidFile'))
       }
     }
 
@@ -701,12 +912,14 @@ export default {
       if (!active) connectSource.value = ''
     })
 
-    // 模型或标记变化:换了文件(sessionKey 变)整体重排,否则差量更新保持位置
-    watch(() => [props.modelData, props.changedNames, props.issueNodes, props.issueEdges],
+    // 模型或标记变化:换了文件(sessionKey 变)或换了视图层(viewKey 变)整体重排,
+    // 否则差量更新保持位置
+    watch(() => [props.modelData, props.changedNames, props.issueNodes, props.issueEdges, props.viewKey],
       (newData) => {
         if (newData[0]) {
-          const reset = lastSessionKey !== props.sessionKey
+          const reset = lastSessionKey !== props.sessionKey || lastViewKey !== props.viewKey
           lastSessionKey = props.sessionKey
+          lastViewKey = props.viewKey
           loadGraphData(newData[0], reset)
           nextTick(() => {
             if (!network.value && networkContainer.value) {
@@ -744,7 +957,9 @@ export default {
       cancelConnect,
       connectSource,
       selectedIds,
-      targetNodeType
+      targetNodeType,
+      targetPrunable,
+      t
     }
   }
 }
@@ -844,6 +1059,7 @@ export default {
 .network-container {
   width: 100%;
   height: 100%;
+  position: relative;
   /* 深色画布 + 细网格(vis-network 的 canvas 透明,网格从这里透出) */
   background-color: var(--sv-bg-canvas);
   background-image:
@@ -854,9 +1070,26 @@ export default {
   padding: 0;
 }
 
+/* 空白处拖拽框选的矩形(脚本里动态创建;按下中键平移时不出现) */
+.sv-box-select {
+  position: absolute;
+  z-index: 1200;
+  border: 1px dashed var(--sv-primary-hover);
+  /* 主题色 8% 透明填充;不支持 color-mix 的浏览器回退为纯虚线框 */
+  background: transparent;
+  background: color-mix(in srgb, var(--sv-primary-hover) 8%, transparent);
+  pointer-events: none;
+  display: none;
+}
+
+.sv-box-select.active {
+  display: block;
+}
+
 .connect-banner {
   position: absolute;
-  top: 16px;
+  /* 挂在画布底部上方:顶部是状态条/面包屑浮层,顶部横幅会压住它们(与 toast 同区,略高一点) */
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1500;

@@ -106,9 +106,10 @@ export function computeTypes(doc) {
   }
 }
 
-/** 格式化类型数组给显示：[784] -> "784"，[2,8,8] -> "2×8×8"；null -> '未知' */
+/** 格式化类型数组给显示：[784] -> "784"，[2,8,8] -> "2×8×8"；null -> '?'。
+ * '?' 是语言无关的占位符号，侧栏显示时再按当前语言本地化（ModelSidebar 的 shapeText）。 */
 function formatType(t) {
-  if (!t) return '未知';
+  if (!t) return '?';
   return t.join('×');
 }
 
@@ -175,10 +176,45 @@ function paramEditInfo(key, field, v) {
  * params 每项带编辑元信息(kind/dtype/shape/preview,小数组含 elements,大数组含 stats)。
  */
 export function buildViewData(doc, types) {
+  return buildViewDataAt(doc, [], types);
+}
+
+/**
+ * 按"进入子图的路径"构建该层画布/侧栏视图模型(进入子图功能用)。
+ * path 是从根图出发的子图名序列;类型标注用点号限定的全路径键
+ * (如 ['block','lif'] 的类型键是 'block.lif'),节点 id 与边端点是局部名。
+ * path 走不到的图抛错(调用方先用 clampViewPath 夹住)。
+ */
+export function buildViewDataAt(doc, path, types) {
+  let graph = doc.graph;
+  for (const name of path || []) {
+    if (graph.type !== 'NIRGraph' || !graph.children || !(name in graph.children)) {
+      throw new Error(`buildViewDataAt: graph not found at [${(path || []).join(', ')}]`);
+    }
+    graph = graph.children[name];
+  }
+  return buildGraphView(graph, path || [], types);
+}
+
+/** 把视图路径夹到文档里最深仍存在的图节点前缀(撤销可能把当前所在子图删掉) */
+export function clampViewPath(doc, path) {
+  const kept = [];
+  let cur = doc && doc.graph;
+  for (const name of path || []) {
+    if (!cur || cur.type !== 'NIRGraph' || !cur.children || !(name in cur.children)) break;
+    cur = cur.children[name];
+    kept.push(name);
+  }
+  return kept;
+}
+
+function buildGraphView(graph, path, types) {
+  const prefix = path.length > 0 ? path.join('.') : '';
+  const typeKeyOf = (id) => (prefix ? `${prefix}.${id}` : id);
   const nodes = {};
-  for (const [id, node] of Object.entries(doc.graph.children || {})) {
+  for (const [id, node] of Object.entries(graph.children || {})) {
     const op = getOperatorInfo(node.type);
-    const t = types[id] || { input: null, output: null };
+    const t = types[typeKeyOf(id)] || { input: null, output: null };
 
     // 参数清单：算子表字段 + 保留的未知数据集
     const params = [];
@@ -187,6 +223,7 @@ export function buildViewData(doc, types) {
       if (v === undefined) continue;
       params.push({
         ...paramEditInfo(field.name, field, v),
+        // label 是中文正典（测试/兜底用）；显示层按 param.key 从 i18n 的 paramLabels.* 取当前语言
         label: FIELD_LABELS[field.name] || field.name,
         optionalInFile: Boolean(field.fileOptional) && !(field.name in node.fields),
         present: true,
@@ -195,6 +232,8 @@ export function buildViewData(doc, types) {
     for (const [name, v] of Object.entries(node.otherDatasets || {})) {
       params.push({
         ...paramEditInfo(name, null, v),
+        // 非标准字段：显示层渲染成 "名字（非标准字段）"，语言随界面
+        nonStandard: true,
         label: `${name}（非标准字段）`,
         present: true,
       });
@@ -231,10 +270,10 @@ export function buildViewData(doc, types) {
     };
   }
 
-  const edges = (doc.graph.edgePairs || []).map(([a, b]) => [a, b]);
+  const edges = (graph.edgePairs || []).map(([a, b]) => [a, b]);
 
   const knownTypes = new Set();
-  collectTypes(doc.graph, knownTypes);
+  collectTypes(graph, knownTypes);
   const knownCount = [...knownTypes].filter((t) => SERIALIZABLE_TYPES.includes(t)).length;
 
   return {

@@ -25,6 +25,6 @@ export { inferTypes, checkTypes, cloneGraph } from './shape.js';
 export * from './edits.js';
 export * from './prune.js';
 export * from './grouping.js';
-export { validateDocument, changedNodeNames } from './validate.js';
+export { validateDocument, changedNodeNames, changedNamesAt } from './validate.js';
 export * from './document.js';
 export { createHistory } from './history.js';

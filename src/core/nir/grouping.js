@@ -101,6 +101,7 @@ function makeTypesResolver(doc, parentPath, graph) {
 export function planGroupNodes(doc, parentPath, names, opts = {}) {
   const errors = [];
   const warnings = [];
+  const warningsX = [];
   const graph = graphAt(doc, parentPath || []);
 
   if (!Array.isArray(names) || names.length < 2) {
@@ -163,9 +164,11 @@ export function planGroupNodes(doc, parentPath, names, opts = {}) {
     // 官方库实测:nir.read(type_check=True) 只接受单入单出子图
     if (inPortCount > 1) {
       warnings.push(`该组将有 ${inPortCount} 个输入端口;官方库类型检查只支持单入单出子图,导出时会被校验闸门拦下`);
+      warningsX.push({ code: 'warn.groupInPorts', params: { count: inPortCount }, message: warnings[warnings.length - 1] });
     }
     if (outPortCount > 1) {
       warnings.push(`该组将有 ${outPortCount} 个输出端口;官方库类型检查只支持单入单出子图,导出时会被校验闸门拦下`);
+      warningsX.push({ code: 'warn.groupOutPorts', params: { count: outPortCount }, message: warnings[warnings.length - 1] });
     }
   }
 
@@ -173,6 +176,8 @@ export function planGroupNodes(doc, parentPath, names, opts = {}) {
     ok: errors.length === 0,
     errors,
     warnings,
+    // 结构化预警(与 warnings 逐条对齐):界面用 tv() 按当前语言显示
+    warningsX,
     groupName,
     inPortCount,
     outPortCount,

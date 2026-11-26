@@ -519,6 +519,15 @@ function connectedSet(nodes, edges) {
  * name 是 parentPath 图里的节点名。
  */
 export function disconnectWarnings(doc, parentPath, name) {
+  return disconnectWarningItems(doc, parentPath, name).map((w) => w.message);
+}
+
+/**
+ * 同 disconnectWarnings,但返回结构化条目 [{ code, params, message }],
+ * message 是中文正典(与原字符串逐字一致,测试锁定);
+ * 界面用 i18n 的 tv() 按 code+params 出当前语言。
+ */
+export function disconnectWarningItems(doc, parentPath, name) {
   const graph = graphAt(doc, parentPath || []);
   if (!graph.children || !(name in graph.children)) {
     throw new Error(`disconnectWarnings: node '${name}' not found`);
@@ -536,11 +545,23 @@ export function disconnectWarnings(doc, parentPath, name) {
     const reach = after.forward.has(n);
     const sink = after.backward.has(n);
     if (!reach && !sink) {
-      warnings.push(`节点 '${n}' 删除后将从任何 Input 都不可达,也无法到达任何 Output`);
+      warnings.push({
+        code: 'warn.isolated',
+        params: { node: n },
+        message: `节点 '${n}' 删除后将从任何 Input 都不可达,也无法到达任何 Output`,
+      });
     } else if (!reach) {
-      warnings.push(`节点 '${n}' 删除后将无法从任何 Input 到达`);
+      warnings.push({
+        code: 'warn.unreachableFromInput',
+        params: { node: n },
+        message: `节点 '${n}' 删除后将无法从任何 Input 到达`,
+      });
     } else if (!sink) {
-      warnings.push(`节点 '${n}' 删除后将无法到达任何 Output`);
+      warnings.push({
+        code: 'warn.cannotReachOutput',
+        params: { node: n },
+        message: `节点 '${n}' 删除后将无法到达任何 Output`,
+      });
     }
   }
   return warnings;

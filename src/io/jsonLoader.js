@@ -62,8 +62,9 @@ export function loadJsonModel(text, fileName = 'model.json') {
       label: `${id}\n(${op ? op.label : type})`,
       params,
       metadataText,
-      inputText: node.input_type ? Object.values(node.input_type).map((x) => (x ? x.join('×') : '?')).join(', ') : '未知',
-      outputText: node.output_type ? Object.values(node.output_type).map((x) => (x ? x.join('×') : '?')).join(', ') : '未知',
+      // '?' 为语言无关占位符,侧栏显示时按当前语言本地化(与 nirIO.formatType 一致)
+      inputText: node.input_type ? Object.values(node.input_type).map((x) => (x ? x.join('×') : '?')).join(', ') : '?',
+      outputText: node.output_type ? Object.values(node.output_type).map((x) => (x ? x.join('×') : '?')).join(', ') : '?',
       childCount: 0,
     };
   }
