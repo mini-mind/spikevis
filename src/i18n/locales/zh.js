@@ -105,7 +105,7 @@ export const dict = {
   about: {
     title: '关于',
     tagline: '在浏览器里查看并手术式编辑 NIR（脉冲网络交换格式）模型。',
-    version: '版本 1.0.0',
+    version: '版本 1.1.0',
     details: '功能与支持的节点类型',
     featureFiles: '支持 .nir / .h5 / .hdf5 / .json 格式，可拖拽上传',
     featureGraph: '交互式网络图：缩放、拖动、右键编辑',

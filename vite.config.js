@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
+  // GitHub Pages 部署在 https://mini-mind.github.io/spikevis/，资源路径按这个前缀解析
+  base: '/spikevis/',
   plugins: [vue()],
   server: {
     port: 5173,

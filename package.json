@@ -1,6 +1,6 @@
 {
   "name": "nir-visualizer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "NIR模型可视化工具",
   "license": "MIT",
   "scripts": {

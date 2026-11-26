@@ -104,7 +104,7 @@ export const dict = {
   about: {
     title: 'About',
     tagline: 'View and surgically edit NIR (spiking-network exchange format) models in your browser.',
-    version: 'Version 1.0.0',
+    version: 'Version 1.1.0',
     details: 'Features & supported node types',
     featureFiles: 'Opens .nir / .h5 / .hdf5 / .json files; drag and drop supported',
     featureGraph: 'Interactive graph: zoom, pan, right-click editing',
